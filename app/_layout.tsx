@@ -1,47 +1,75 @@
-// File: app/_layout.tsx (Pure JavaScript Firebase Auth)
+// The Final Version: Using Expo Auth Session + Firebase Web SDK with Native Storage
 
 import React, { useState, useEffect } from 'react';
 import { View, Button, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { Stack } from 'expo-router';
 import 'react-native-reanimated';
 
-// Import from the JS SDK and our config file
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+
+// Import the tools we need from the JS SDK
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, User } from 'firebase/auth';
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  GoogleAuthProvider, 
+  signInWithCredential, 
+  User,
+  // --- THIS IS THE NEW, IMPORTANT PART ---
+  getReactNativePersistence, 
+  initializeAuth 
+} from 'firebase/auth';
 import firebaseConfig from '../firebaseConfig';
 
-// NO MORE NATIVE GOOGLE SIGN-IN LIBRARY NEEDED
+// --- THIS IS THE OTHER NEW, IMPORTANT PART ---
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Initialize Firebase
+
+WebBrowser.maybeCompleteAuthSession();
+
+// Initialize Firebase App
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+
+// --- THIS IS THE CRUCIAL CHANGE ---
+// We initialize Auth with native storage persistence
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage)
+});
+
 
 function LoginScreen() {
-  // This function now uses the Web-based redirect flow
-  async function onGoogleButtonPress() {
-    try {
-      const provider = new GoogleAuthProvider();
-      // This will open a web browser on the phone for sign-in
-      await signInWithRedirect(auth, provider);
-    } catch (error) {
-      console.error("Google Sign-In Error:", error);
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    webClientId: "853937397489-ijljjl3olgk90kvjnojfn3kl7s81vp0h.apps.googleusercontent.com",
+    androidClientId: "853937397489-pgb8h8tgsr9hq536jijlq55r4dfvl466.apps.googleusercontent.com",
+  });
+
+  React.useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      signInWithCredential(auth, credential);
     }
-  }
+  }, [response]);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome to Bar Inventory</Text>
       <Button
+        disabled={!request}
         title="Sign in with Google"
-        onPress={onGoogleButtonPress}
+        onPress={() => {
+          promptAsync();
+        }}
       />
     </View>
   );
 }
 
+
 export default function RootLayout() {
-  const [initializing, setInitializing] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
     const subscriber = onAuthStateChanged(auth, (user) => {
@@ -50,7 +78,7 @@ export default function RootLayout() {
         setInitializing(false);
       }
     });
-    return subscriber; // unsubscribe on unmount
+    return subscriber; 
   }, []);
 
   if (initializing) {
@@ -65,8 +93,6 @@ export default function RootLayout() {
     return <LoginScreen />;
   }
 
-  // If logged in, we show the main app.
-  // We need to recreate our tab layout since this is the root.
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
