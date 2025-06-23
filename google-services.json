@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "256291742876",
+    "project_id": "barvision-smfkb",
+    "storage_bucket": "barvision-smfkb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:256291742876:android:64c18edc743a9e7fe57959",
+        "android_client_info": {
+          "package_name": "com.schwartzeg.BarInventoryApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXJl3NgpC0MVHO0p1AS8SmjcgBEgc_Axs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
