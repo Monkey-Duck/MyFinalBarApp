@@ -1,73 +1,81 @@
-// File: app/_layout.tsx (The Final Native Firebase Auth Code)
+// The Final Version: Using Expo Auth Session + Firebase Web SDK
 
 import React, { useState, useEffect } from 'react';
-import { View, Button, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { View, Button, ActivityIndicator, StyleSheet, Text, Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import 'react-native-reanimated';
 
-// Import our NATIVE Firebase and Google Sign-In tools
-import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+// Import Expo's official auth tools
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 
-// We need to configure Google Sign-In with the Web Client ID
-// from our google-services.json file.
-GoogleSignin.configure({
-  // This is a default value that often works, but we may need to find your specific one if it fails.
-  webClientId: 'YOUR_WEB_CLIENT_ID_IF_NEEDED', 
-});
+// Import from the JS-only Firebase library and our config file
+import { initializeApp } from 'firebase/app';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithCredential, User } from 'firebase/auth';
+import firebaseConfig from '../firebaseConfig';
+
+
+// This tells the web browser to close automatically after login on mobile
+WebBrowser.maybeCompleteAuthSession();
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
 
 function LoginScreen() {
-  async function onGoogleButtonPress() {
-    try {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const { idToken } = await GoogleSignin.signIn();
-      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-      return auth().signInWithCredential(googleCredential);
-    } catch (error) {
-      console.error("Native Google Sign-In Error:", error);
+  // We use Expo's official 'useAuthRequest' hook to manage the login flow
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    // You need to get these IDs from your Google Cloud Console
+    // Go to https://console.cloud.google.com/apis/credentials
+    // Find your Web Client ID for the webClientId.
+    // Create a new "Android" credential and get the client ID for androidClientId.
+    webClientId: "853937397489-ijljjl3olgk90kvjnojfn3kl7s81vp0h.apps.googleusercontent.com",
+    androidClientId: "853937397489-pgb8h8tgsr9hq536jijlq55r4dfvl466.apps.googleusercontent.com",
+  });
+
+  React.useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      signInWithCredential(auth, credential);
     }
-  }
+  }, [response]);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome to Bar Inventory</Text>
       <Button
+        disabled={!request}
         title="Sign in with Google"
-        onPress={() => onGoogleButtonPress().then(() => console.log('Signed in with Google!'))}
+        onPress={() => {
+          promptAsync();
+        }}
       />
     </View>
   );
 }
 
+
 export default function RootLayout() {
-  const [initializing, setInitializing] = useState(true);
-  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const subscriber = auth().onAuthStateChanged((user) => {
+    const subscriber = onAuthStateChanged(auth, (user) => {
       setUser(user);
-      if (initializing) setInitializing(false);
     });
-    return subscriber; 
+    return subscriber; // unsubscribe on unmount
   }, []);
 
-  if (initializing) {
-    return (
-        <View style={styles.container}>
-            <ActivityIndicator size="large" />
-        </View>
-    );
-  }
-
-  if (!user) {
-    return <LoginScreen />;
-  }
-
-  return (
+  // Here, you would typically have a loading state, but we'll keep it simple
+  // If we have a user, show the app, otherwise show the login button
+  return user ? (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
     </Stack>
+  ) : (
+    <LoginScreen />
   );
 }
 

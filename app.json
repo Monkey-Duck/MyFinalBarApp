@@ -19,14 +19,17 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.schwartzeg.BarInventoryApp",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-"plugins": [
+    "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
@@ -41,6 +44,12 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "03856c7a-b021-4323-9504-7cb10397e049"
+      }
     }
   }
+}
