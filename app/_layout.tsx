@@ -1,33 +1,30 @@
-// File: app/_layout.tsx (Using the Firebase Web SDK)
+// File: app/_layout.tsx (Pure JavaScript Firebase Auth)
 
 import React, { useState, useEffect } from 'react';
 import { View, Button, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { Stack } from 'expo-router';
+import 'react-native-reanimated';
 
-// Import from the new JS-only library and our config file
+// Import from the JS SDK and our config file
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithCredential, User } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, User } from 'firebase/auth';
 import firebaseConfig from '../firebaseConfig';
 
-// We still use this native module to get the Google Sign-In pop-up
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-
+// NO MORE NATIVE GOOGLE SIGN-IN LIBRARY NEEDED
 
 // Initialize Firebase
-initializeApp(firebaseConfig);
-const auth = getAuth();
-
-GoogleSignin.configure();
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
 function LoginScreen() {
+  // This function now uses the Web-based redirect flow
   async function onGoogleButtonPress() {
     try {
-      await GoogleSignin.hasPlayServices();
-      const { idToken } = await GoogleSignin.signIn();
-      const googleCredential = GoogleAuthProvider.credential(idToken);
-      return signInWithCredential(auth, googleCredential);
+      const provider = new GoogleAuthProvider();
+      // This will open a web browser on the phone for sign-in
+      await signInWithRedirect(auth, provider);
     } catch (error) {
-      console.error(error);
+      console.error("Google Sign-In Error:", error);
     }
   }
 
@@ -68,7 +65,8 @@ export default function RootLayout() {
     return <LoginScreen />;
   }
 
-  // If logged in, show the main app. We need to recreate the tab layout.
+  // If logged in, we show the main app.
+  // We need to recreate our tab layout since this is the root.
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -78,6 +76,6 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
     title: { fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
 });
