@@ -1,33 +1,31 @@
-// Version with "Save to My Bar" Firestore logic
+// File: app/(tabs)/index.tsx
 
 import React, { useState, useRef } from 'react';
-import { StyleSheet, Text, View, Button, Image, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import { StyleSheet, Text, View, Button, Image, ActivityIndicator, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { CameraView } from 'expo-camera'; 
 import axios from 'axios';
-
-// --- NEW: Import the tools we need for our database ---
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
+import { FontAwesome } from '@expo/vector-icons'; // We need this for the star icon
 
-
-const GOOGLE_VISION_API_KEY = 'PASTE_YOUR_GOOGLE_VISION_API_KEY_HERE'; 
+const GOOGLE_VISION_API_KEY = 'AIzaSyB-VR33XCpfhwY52D71LERIJ-TN5YRcUuQ'; 
 
 const visionApiUrl = `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`;
 
 export default function CameraLookupScreen() {
-  // ... all our existing state variables are the same ...
   const [photo, setPhoto] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const [isLoading, setIsLoading] = useState(false); 
   const [recognizedText, setRecognizedText] = useState('');
   const [productInfo, setProductInfo] = useState<any | null>(null);
 
-  const takePicture = async () => { /* ... this function is unchanged ... */ };
-  const analyzeImage = async (base64ImageData: string | undefined) => { /* ... this function is unchanged ... */};
+  // --- NEW: State to track if the current item should be saved as a favorite ---
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  const takePicture = async () => { /* ... unchanged ... */ };
+  const analyzeImage = async (base64ImageData: string | undefined) => { /* ... unchanged ... */};
   
-  // --- NEW FUNCTION: Save the current product to our Firestore database ---
   const saveToBar = async () => {
-    // First, make sure we have product info and a logged-in user
     if (!productInfo || !productInfo.title) {
       Alert.alert("Error", "No product information to save.");
       return;
@@ -38,22 +36,26 @@ export default function CameraLookupScreen() {
       return;
     }
 
-    // Show a saving indicator (optional, but good UX)
     Alert.alert("Saving...", `Adding ${productInfo.title} to your bar.`);
 
     try {
-      // This creates a document in our database:
-      // users -> {user's_id} -> bar -> {new_bottle_id}
       await firestore()
         .collection('users')
         .doc(currentUser.uid)
         .collection('bar')
         .add({
           ...productInfo,
-          savedAt: firestore.FieldValue.serverTimestamp(), // Add a timestamp
+          // --- NEW: We now save the favorite status ---
+          isFavorite: isFavorite, 
+          savedAt: firestore.FieldValue.serverTimestamp(),
         });
       
       Alert.alert("Success!", `${productInfo.title} has been added to your bar.`);
+      // Reset for the next lookup
+      setPhoto(null);
+      setProductInfo(null);
+      setIsFavorite(false);
+
     } catch (error) {
       console.error("Error saving to Firestore: ", error);
       Alert.alert("Error", "Could not save the item to your bar.");
@@ -61,7 +63,6 @@ export default function CameraLookupScreen() {
   };
 
 
-  // If a photo has been taken, show the results
   if (photo) {
     return (
       <ScrollView contentContainerStyle={styles.previewContainer}>
@@ -70,11 +71,21 @@ export default function CameraLookupScreen() {
           <>
             {productInfo && productInfo.title !== 'Product not found in database.' ? (
               <View style={styles.productResultContainer}>
-                <Text style={styles.productTitle}>{productInfo.title}</Text>
+                {/* --- NEW: A row for the title and the favorite button --- */}
+                <View style={styles.titleRow}>
+                    <Text style={styles.productTitle}>{productInfo.title}</Text>
+                    <TouchableOpacity onPress={() => setIsFavorite(!isFavorite)}>
+                        <FontAwesome 
+                            name={isFavorite ? 'star' : 'star-o'} 
+                            size={28} 
+                            color={isFavorite ? '#FFD700' : '#ccc'} 
+                        />
+                    </TouchableOpacity>
+                </View>
+
                 <Text style={styles.productBrand}>by {productInfo.brand}</Text>
                 <Text style={styles.productDescription}>{productInfo.description}</Text>
                 
-                {/* --- NEW: The "Save to My Bar" Button --- */}
                 <View style={{marginTop: 20}}>
                     <Button title="Save to My Bar" onPress={saveToBar} color="#00ff00" />
                 </View>
@@ -88,12 +99,11 @@ export default function CameraLookupScreen() {
             )}
           </>
         )}
-        <Button title="Take Another" onPress={() => { setPhoto(null); setProductInfo(null); }} />
+        <Button title="Take Another" onPress={() => { setPhoto(null); setProductInfo(null); setIsFavorite(false); }} />
       </ScrollView>
     );
   }
 
-  // Otherwise, show the camera
   return ( 
     <CameraView style={styles.camera} ref={cameraRef}> 
       <View style={styles.buttonContainer}>
@@ -103,8 +113,14 @@ export default function CameraLookupScreen() {
   );
 }
 
-// All the styles are the same as before...
 const styles = StyleSheet.create({
+    // --- NEW STYLE FOR THE TITLE ROW ---
+    titleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
     camera: { flex: 1 },
     previewContainer: {
         alignItems: 'center',
@@ -144,7 +160,13 @@ const styles = StyleSheet.create({
         borderLeftColor: '#00ff00',
         borderLeftWidth: 5,
     },
-    productTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
+    productTitle: { 
+        color: 'white', 
+        fontSize: 22, 
+        fontWeight: 'bold',
+        flex: 1, // Allows text to wrap if long
+        marginRight: 10,
+    },
     productBrand: { color: '#ccc', fontSize: 16, fontStyle: 'italic', marginBottom: 10 },
     productDescription: { color: 'white', fontSize: 14 },
 });
