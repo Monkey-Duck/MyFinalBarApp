@@ -1,4 +1,4 @@
-// File: app/(tabs)/_layout.tsx (Complete and Updated)
+// File: app/(tabs)/_layout.tsx (Complete with Recipes Tab)
 
 import { Tabs } from 'expo-router';
 import React from 'react';
@@ -30,7 +30,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home', // Changed back to "Home" as it's now a dashboard
+          title: 'Home',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
@@ -48,7 +48,14 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="star.fill" color={color} />,
         }}
       />
-      {/* --- NEW: The Settings Tab --- */}
+      {/* --- NEW: The Recipes Tab --- */}
+      <Tabs.Screen
+        name="recipes"
+        options={{
+          title: 'Recipes',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="book.fill" color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="settings"
         options={{
