@@ -1,110 +1,161 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+// File: app/(tabs)/explore.tsx
 
-import { Collapsible } from '@/components/Collapsible';
-import { ExternalLink } from '@/components/ExternalLink';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, Button, FlatList, ActivityIndicator, Image } from 'react-native';
 
-export default function TabTwoScreen() {
+// Import our Firebase tools
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+
+// Define the structure of a bottle object for TypeScript
+interface Bottle {
+  id: string;
+  title: string;
+  brand: string;
+  description: string;
+  // Add any other fields you expect from the UPCitemdb API
+  images?: string[]; 
+}
+
+// A component to render a single bottle in our list
+const BottleItem = ({ bottle }: { bottle: Bottle }) => (
+  <View style={styles.bottleContainer}>
+    {bottle.images && bottle.images.length > 0 && (
+      <Image source={{ uri: bottle.images[0] }} style={styles.bottleImage} />
+    )}
+    <View style={styles.bottleInfo}>
+      <Text style={styles.bottleTitle}>{bottle.title}</Text>
+      <Text style={styles.bottleBrand}>by {bottle.brand}</Text>
+    </View>
+  </View>
+);
+
+export default function MyBarScreen() {
+  const [loading, setLoading] = useState(true); // To show a spinner while we load data
+  const [bottles, setBottles] = useState<Bottle[]>([]); // To hold the list of bottles
+
+  const currentUser = auth().currentUser;
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // This sets up a real-time listener on our database!
+    // Any time a bottle is added or removed, this code will run automatically.
+    const subscriber = firestore()
+      .collection('users')
+      .doc(currentUser.uid)
+      .collection('bar')
+      .onSnapshot(querySnapshot => {
+        const bottles: Bottle[] = [];
+
+        querySnapshot.forEach(documentSnapshot => {
+          bottles.push({
+            ...documentSnapshot.data() as Bottle,
+            id: documentSnapshot.id,
+          });
+        });
+
+        setBottles(bottles);
+        setLoading(false);
+      });
+
+    // Unsubscribe from events when the component is unmounted
+    return () => subscriber();
+  }, [currentUser]);
+
+  // Our simple logout function
+  const handleLogout = () => {
+    auth().signOut().then(() => console.log('User signed out!'));
+  };
+
+  if (loading) {
+    return <ActivityIndicator size="large" style={{flex: 1}} />;
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image source={require('@/assets/images/react-logo.png')} style={{ alignSelf: 'center' }} />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Custom fonts">
-        <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText> to see how to load{' '}
-          <ThemedText style={{ fontFamily: 'SpaceMono' }}>
-            custom fonts such as this one.
-          </ThemedText>
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/versions/latest/sdk/font">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful <ThemedText type="defaultSemiBold">react-native-reanimated</ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>My Bar</Text>
+        <Button title="Sign Out" onPress={handleLogout} color="#ff3b30" />
+      </View>
+      
+      <FlatList
+        data={bottles}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <BottleItem bottle={item} />}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Your bar is empty.</Text>
+            <Text style={styles.emptySubText}>Use the 'Lookup' tab to add your first bottle!</Text>
+          </View>
+        )}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
   },
-  titleContainer: {
+  header: {
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 50, // For notch/status bar
+    paddingBottom: 10,
+    backgroundColor: '#1a1a1a',
   },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  emptyContainer: {
+    flex: 1,
+    marginTop: 150,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 18,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 8,
+  },
+  bottleContainer: {
+    flexDirection: 'row',
+    padding: 15,
+    marginHorizontal: 10,
+    marginTop: 10,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  bottleImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 15,
+    backgroundColor: '#333',
+  },
+  bottleInfo: {
+    flex: 1,
+  },
+  bottleTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  bottleBrand: {
+    fontSize: 14,
+    color: '#ccc',
+    marginTop: 4,
+  }
 });
