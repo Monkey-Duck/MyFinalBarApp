@@ -1,88 +1,96 @@
-// File: app/_layout.tsx (Corrected - No React Native Persistence)
+// File: app/_layout.tsx (Final Version using @react-native-firebase)
 
 import React, { useState, useEffect } from 'react';
-import { View, Button, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { View, Button, ActivityIndicator, StyleSheet, Text, Alert } from 'react-native';
 import { Stack } from 'expo-router';
 import 'react-native-reanimated';
 
-// Import Expo's official auth tools
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+// Import our new NATIVE Firebase and Google Sign-In tools
+import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
-// Import the tools we need from the pure JS SDK
-import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, 
-  onAuthStateChanged, 
-  GoogleAuthProvider, 
-  signInWithCredential, 
-  User
-} from 'firebase/auth';
-
-import firebaseConfig from '../firebaseConfig'; // Your Firebase config file
-
-// This tells the web browser to close automatically after login on mobile
-WebBrowser.maybeCompleteAuthSession();
-
-// Initialize Firebase App
-const app = initializeApp(firebaseConfig);
-
-// Use the standard, simple getAuth(). This will not persist the login
-// between app closes for now, but it will get the app working.
-const auth = getAuth(app);
-
+// We need to configure Google Sign-in with the Web Client ID
+// from our google-services.json file. You can also find this in your Google Cloud Console.
+GoogleSignin.configure({
+    webClientId: '853937397489-ijljjl3olgk90kvjnojfn3kl7s81vp0h.apps.googleusercontent.com',
+});
 
 function LoginScreen() {
-  // This hook manages the entire Google Sign-in pop-up flow
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    // PASTE YOUR CLIENT IDs HERE
-    webClientId: '853937397489-ijljjl3olgk90kvjnojfn3kl7s81vp0h.apps.googleusercontent.com',
-    androidClientId: '853937397489-pgb8h8tgsr9hq536jijlq55r4dfvl466.apps.googleusercontent.com',
-  });
+  async function onGoogleButtonPress() {
+    try {
+      // Check if your device supports Google Play
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      // Get the user's account information
+      const { user } = await GoogleSignin.signIn();
 
-  // This effect runs when Google redirects back to the app after login
-  React.useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      // Use the credential to sign into Firebase
-      signInWithCredential(auth, credential);
+      // --- THIS IS THE CORRECTED PART ---
+      // The idToken is a property of the 'user' object
+      const idToken = user.idToken;
+
+      if (!idToken) {
+        throw new Error("Google Sign-In failed to return an ID token.");
+      }
+
+      // Create a Google credential with the token
+      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+
+      // Sign-in the user with the credential
+      return auth().signInWithCredential(googleCredential);
+    } catch (error: any) {
+        if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+            // user cancelled the login flow
+            console.log('User cancelled the login flow');
+        } else if (error.code === statusCodes.IN_PROGRESS) {
+            // operation (e.g. sign in) is in progress already
+            console.log('Sign in is in progress');
+        } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+            // play services not available or outdated
+            Alert.alert("Error", "Google Play Services is not available or outdated.");
+        } else {
+            // some other error happened
+            console.error("Native Google Sign-In Error:", error);
+            Alert.alert("Login Error", "An unexpected error occurred during sign-in.");
+        }
     }
-  }, [response]);
+  }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome to Bar Inventory</Text>
       <Button
-        disabled={!request}
         title="Sign in with Google"
-        onPress={() => {
-          promptAsync(); // This opens the Google Sign-in pop-up
-        }}
+        onPress={() => onGoogleButtonPress().then(() => console.log('Signed in with Google!'))}
       />
     </View>
   );
 }
 
-
 export default function RootLayout() {
-  const [user, setUser] = useState<User | null>(null);
+  const [initializing, setInitializing] = useState(true);
+  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
 
-  // This listener checks if the user is logged in or out
+  // Handle user state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const subscriber = auth().onAuthStateChanged((user) => {
       setUser(user);
+      if (initializing) setInitializing(false);
     });
-    return unsubscribe; // Cleanup the listener
+    return subscriber; 
   }, []);
 
+  if (initializing) {
+    return (
+        <View style={styles.container}>
+            <ActivityIndicator size="large" />
+        </View>
+    );
+  }
 
-  // If there is no user, show the LoginScreen
   if (!user) {
     return <LoginScreen />;
   }
 
-  // If there IS a user, show the main app with the tabs!
+  // If the user is logged in, show the main app with the tabs.
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
