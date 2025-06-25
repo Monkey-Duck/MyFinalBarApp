@@ -1,18 +1,18 @@
-// File: app/_layout.tsx (Final Version using @react-native-firebase)
+// File: app/_layout.tsx (Final Corrected Version using getTokens)
 
 import React, { useState, useEffect } from 'react';
 import { View, Button, ActivityIndicator, StyleSheet, Text, Alert } from 'react-native';
 import { Stack } from 'expo-router';
 import 'react-native-reanimated';
 
-// Import our new NATIVE Firebase and Google Sign-In tools
+// Import our NATIVE Firebase and Google Sign-In tools
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
 // We need to configure Google Sign-in with the Web Client ID
-// from our google-services.json file. You can also find this in your Google Cloud Console.
+// This ID comes from your Google Cloud Console.
 GoogleSignin.configure({
-    webClientId: '853937397489-ijljjl3olgk90kvjnojfn3kl7s81vp0h.apps.googleusercontent.com',
+  webClientId: 'YOUR_WEB_CLIENT_ID_FROM_GOOGLE_CLOUD_CONSOLE',
 });
 
 function LoginScreen() {
@@ -20,12 +20,12 @@ function LoginScreen() {
     try {
       // Check if your device supports Google Play
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      // Get the user's account information
-      const { user } = await GoogleSignin.signIn();
-
-      // --- THIS IS THE CORRECTED PART ---
-      // The idToken is a property of the 'user' object
-      const idToken = user.idToken;
+      
+      // Step 1: Complete the sign-in flow
+      await GoogleSignin.signIn();
+      
+      // Step 2: Explicitly get the tokens after sign-in
+      const { idToken } = await GoogleSignin.getTokens();
 
       if (!idToken) {
         throw new Error("Google Sign-In failed to return an ID token.");
@@ -38,16 +38,12 @@ function LoginScreen() {
       return auth().signInWithCredential(googleCredential);
     } catch (error: any) {
         if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-            // user cancelled the login flow
             console.log('User cancelled the login flow');
         } else if (error.code === statusCodes.IN_PROGRESS) {
-            // operation (e.g. sign in) is in progress already
-            console.log('Sign in is in progress');
+            Alert.alert("Sign in is already in progress.");
         } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-            // play services not available or outdated
             Alert.alert("Error", "Google Play Services is not available or outdated.");
         } else {
-            // some other error happened
             console.error("Native Google Sign-In Error:", error);
             Alert.alert("Login Error", "An unexpected error occurred during sign-in.");
         }
