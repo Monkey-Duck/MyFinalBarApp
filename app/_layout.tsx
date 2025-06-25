@@ -1,4 +1,4 @@
-// File: app/_layout.tsx (The Final, Corrected Version)
+// File: app/_layout.tsx (The Final, Correct, Web SDK Version)
 
 import React, { useState, useEffect } from 'react';
 import { View, Button, ActivityIndicator, StyleSheet, Text } from 'react-native';
@@ -9,20 +9,18 @@ import 'react-native-reanimated';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 
-// Import from the JS-only Firebase library
+// Import the tools we need from the pure JS SDK
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
   onAuthStateChanged, 
   GoogleAuthProvider, 
   signInWithCredential, 
-  User
+  User,
+  getReactNativePersistence, 
+  initializeAuth 
 } from 'firebase/auth';
-
-// --- THIS IS THE CORRECTED IMPORT PATH ---
-import { getReactNativePersistence, initializeAuth } from 'firebase/auth/react-native';
-
-import firebaseConfig from '../firebaseConfig';
+import firebaseConfig from '../firebaseConfig'; // Make sure this file exists with your config
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
@@ -32,7 +30,7 @@ WebBrowser.maybeCompleteAuthSession();
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
-// We initialize Auth with native storage persistence
+// We initialize Auth with native storage persistence, which is required for the JS SDK on mobile
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage)
 });
@@ -40,9 +38,9 @@ const auth = initializeAuth(app, {
 
 function LoginScreen() {
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    // IMPORTANT: Make sure your Client IDs from Google Cloud are pasted here
-    webClientId: 'PASTE_YOUR_WEB_CLIENT_ID_HERE',
-    androidClientId: 'PASTE_YOUR_ANDROID_CLIENT_ID_HERE',
+    // IMPORTANT: Make sure your Client IDs from your Google Cloud project are pasted here
+    webClientId: 'YOUR_WEB_CLIENT_ID_HERE',
+    androidClientId: 'YOUR_ANDROID_CLIENT_ID_HERE',
   });
 
   React.useEffect(() => {
