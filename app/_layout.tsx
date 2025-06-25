@@ -1,4 +1,4 @@
-// File: app/_layout.tsx (Final Version with Persistence)
+// File: app/_layout.tsx (Corrected - No React Native Persistence)
 
 import React, { useState, useEffect } from 'react';
 import { View, Button, ActivityIndicator, StyleSheet, Text } from 'react-native';
@@ -16,15 +16,10 @@ import {
   onAuthStateChanged, 
   GoogleAuthProvider, 
   signInWithCredential, 
-  User,
-  initializeAuth // We need this special function
+  User
 } from 'firebase/auth';
-// THIS is the special import for native storage that we need
-import { getReactNativePersistence } from 'firebase/auth/react-native';
 
 import firebaseConfig from '../firebaseConfig'; // Your Firebase config file
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 
 // This tells the web browser to close automatically after login on mobile
 WebBrowser.maybeCompleteAuthSession();
@@ -32,13 +27,13 @@ WebBrowser.maybeCompleteAuthSession();
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
-// THIS IS THE CRUCIAL CHANGE: We initialize Auth with native storage persistence
-const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage)
-});
+// Use the standard, simple getAuth(). This will not persist the login
+// between app closes for now, but it will get the app working.
+const auth = getAuth(app);
 
 
 function LoginScreen() {
+  // This hook manages the entire Google Sign-in pop-up flow
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     // PASTE YOUR CLIENT IDs HERE
     webClientId: '853937397489-ijljjl3olgk90kvjnojfn3kl7s81vp0h.apps.googleusercontent.com',
@@ -72,26 +67,15 @@ function LoginScreen() {
 
 export default function RootLayout() {
   const [user, setUser] = useState<User | null>(null);
-  const [initializing, setInitializing] = useState(true);
 
   // This listener checks if the user is logged in or out
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
-      if (initializing) {
-        setInitializing(false);
-      }
     });
     return unsubscribe; // Cleanup the listener
   }, []);
 
-  if (initializing) {
-    return (
-        <View style={styles.container}>
-            <ActivityIndicator size="large" />
-        </View>
-    );
-  }
 
   // If there is no user, show the LoginScreen
   if (!user) {
