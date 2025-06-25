@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Slot, useRouter, useSegments, Href } from 'expo-router';
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
@@ -40,14 +40,17 @@ const useProtectedRoute = (user: User | null, authLoading: boolean) => {
 
     const inAuthGroup = segments[0] === '(auth)';
 
+    // If the user is signed in and trying to access an auth screen (like login),
+    // redirect them to the home screen of the main app.
     if (user && inAuthGroup) {
-      // If the user is signed in and trying to access an auth screen (like login),
-      // redirect them to the home screen of the main app.
-      router.replace('/(tabs)/home'); 
-    } else if (!user && !inAuthGroup) {
-      // If the user is not signed in and is trying to access anything
-      // other than the auth screens, redirect them to the login screen.
-      router.replace('/(auth)/login');
+      // FIX: Use the Href type from expo-router for better type safety.
+      router.replace('/(tabs)/home' as Href); 
+    } 
+    // If the user is not signed in and is trying to access anything
+    // other than the auth screens, redirect them to the login screen.
+    else if (!user && !inAuthGroup) {
+      // FIX: Use the Href type from expo-router for better type safety.
+      router.replace('/(auth)/login' as Href);
     }
   }, [user, segments, authLoading, router]);
 };
