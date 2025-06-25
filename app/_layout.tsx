@@ -12,7 +12,7 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 // We need to configure Google Sign-in with the Web Client ID
 // This ID comes from your Google Cloud Console.
 GoogleSignin.configure({
-  webClientId: 'YOUR_WEB_CLIENT_ID_FROM_GOOGLE_CLOUD_CONSOLE',
+    webClientId: '853937397489-ijljjl3olgk90kvjnojfn3kl7s81vp0h.apps.googleusercontent.com',
 });
 
 function LoginScreen() {
