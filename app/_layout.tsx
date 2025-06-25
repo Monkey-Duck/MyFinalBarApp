@@ -1,100 +1,98 @@
-// File: app/_layout.tsx (Final Corrected Version using getTokens)
-
 import React, { useState, useEffect } from 'react';
-import { View, Button, ActivityIndicator, StyleSheet, Text, Alert } from 'react-native';
-import { Stack } from 'expo-router';
-import 'react-native-reanimated';
+import { Slot, useRouter, useSegments } from 'expo-router';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
-// Import our NATIVE Firebase and Google Sign-In tools
-import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+// --- IMPORTANT ---
+// PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE
+// You can find this in your Firebase project settings.
+const firebaseConfig = {
+  apiKey: "AIzaSyDyouzzGWmk2ed_Pnnd92jnDduxmBZtc0w",
+  authDomain: "barvision-smfkb.firebaseapp.com",
+  projectId: "barvision-smfkb",
+  storageBucket: "barvision-smfkb.firebasestorage.app",
+  messagingSenderId: "256291742876",
+  appId: "1:256291742876:web:35d9cf94da0e46b0e57959"
+};
+// -----------------
 
-// We need to configure Google Sign-in with the Web Client ID
-// This ID comes from your Google Cloud Console.
-GoogleSignin.configure({
-    webClientId: '853937397489-ijljjl3olgk90kvjnojfn3kl7s81vp0h.apps.googleusercontent.com',
-});
-
-function LoginScreen() {
-  async function onGoogleButtonPress() {
-    try {
-      // Check if your device supports Google Play
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      
-      // Step 1: Complete the sign-in flow
-      await GoogleSignin.signIn();
-      
-      // Step 2: Explicitly get the tokens after sign-in
-      const { idToken } = await GoogleSignin.getTokens();
-
-      if (!idToken) {
-        throw new Error("Google Sign-In failed to return an ID token.");
-      }
-
-      // Create a Google credential with the token
-      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-
-      // Sign-in the user with the credential
-      return auth().signInWithCredential(googleCredential);
-    } catch (error: any) {
-        if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-            console.log('User cancelled the login flow');
-        } else if (error.code === statusCodes.IN_PROGRESS) {
-            Alert.alert("Sign in is already in progress.");
-        } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-            Alert.alert("Error", "Google Play Services is not available or outdated.");
-        } else {
-            console.error("Native Google Sign-In Error:", error);
-            Alert.alert("Login Error", "An unexpected error occurred during sign-in.");
-        }
-    }
-  }
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome to Bar Inventory</Text>
-      <Button
-        title="Sign in with Google"
-        onPress={() => onGoogleButtonPress().then(() => console.log('Signed in with Google!'))}
-      />
-    </View>
-  );
+// Initialize Firebase
+let app: FirebaseApp;
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
 }
 
-export default function RootLayout() {
-  const [initializing, setInitializing] = useState(true);
-  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
+/**
+ * Custom hook to protect routes based on authentication state.
+ * It ensures that unauthenticated users are always sent to the login screen,
+ * and authenticated users are sent to the main app content.
+ */
+const useProtectedRoute = (user: User | null, authLoading: boolean) => {
+  const segments = useSegments();
+  const router = useRouter();
 
-  // Handle user state changes
   useEffect(() => {
-    const subscriber = auth().onAuthStateChanged((user) => {
-      setUser(user);
-      if (initializing) setInitializing(false);
-    });
-    return subscriber; 
-  }, []);
+    // We don't want to run navigation logic until Firebase auth has been checked.
+    if (authLoading) {
+      return;
+    }
 
-  if (initializing) {
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (user && inAuthGroup) {
+      // If the user is signed in and trying to access an auth screen (like login),
+      // redirect them to the home screen of the main app.
+      router.replace('/(tabs)/home'); 
+    } else if (!user && !inAuthGroup) {
+      // If the user is not signed in and is trying to access anything
+      // other than the auth screens, redirect them to the login screen.
+      router.replace('/(auth)/login');
+    }
+  }, [user, segments, authLoading, router]);
+};
+
+export default function RootLayout() {
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true); // Track initial auth check
+  
+  const auth = getAuth();
+
+  useEffect(() => {
+    // onAuthStateChanged returns an unsubscribe function.
+    // This listener checks the user's sign-in state.
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      // The first time this runs, the initial auth check is complete.
+      setAuthLoading(false); 
+    });
+
+    // Cleanup subscription on unmount to prevent memory leaks.
+    return () => unsubscribe();
+  }, [auth]);
+
+  // Use the hook to manage navigation.
+  useProtectedRoute(user, authLoading);
+
+  // While the initial authentication check is running, show a loading indicator.
+  // This prevents a "flash" of the login screen before redirecting.
+  if (authLoading) {
     return (
-        <View style={styles.container}>
-            <ActivityIndicator size="large" />
-        </View>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" />
+      </View>
     );
   }
 
-  if (!user) {
-    return <LoginScreen />;
-  }
-
-  // If the user is logged in, show the main app with the tabs.
-  return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
-  );
+  // The <Slot /> component renders the current child route (login or tabs).
+  // Our hook has already directed the router to the correct one.
+  return <Slot />;
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-    title: { fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    }
 });
