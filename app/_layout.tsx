@@ -1,41 +1,109 @@
-// File: app/_layout.tsx (A simple test to see if Firebase initializes)
+// File: app/_layout.tsx (The Final, Corrected Version)
 
-import React from 'react';
-import { View, Button, StyleSheet, Text } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Button, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { Stack } from 'expo-router';
+import 'react-native-reanimated';
 
-// We only import the most basic Firebase functions
+// Import Expo's official auth tools
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+
+// Import from the JS-only Firebase library
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  GoogleAuthProvider, 
+  signInWithCredential, 
+  User
+} from 'firebase/auth';
+
+// --- THIS IS THE CORRECTED IMPORT PATH ---
+import { getReactNativePersistence, initializeAuth } from 'firebase/auth/react-native';
+
 import firebaseConfig from '../firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
-// We will try to initialize Firebase right here when the app loads
-try {
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  // If we see this message in the terminal, it's a huge success!
-  console.log("Firebase Initialized Successfully on app load!");
-} catch (error) {
-  // If we see this, there is a problem with our firebaseConfig
-  console.error("A critical error occurred during Firebase initialization:", error);
+// This tells the web browser to close automatically after login on mobile
+WebBrowser.maybeCompleteAuthSession();
+
+// Initialize Firebase App
+const app = initializeApp(firebaseConfig);
+
+// We initialize Auth with native storage persistence
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage)
+});
+
+
+function LoginScreen() {
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    // IMPORTANT: Make sure your Client IDs from Google Cloud are pasted here
+    webClientId: 'PASTE_YOUR_WEB_CLIENT_ID_HERE',
+    androidClientId: 'PASTE_YOUR_ANDROID_CLIENT_ID_HERE',
+  });
+
+  React.useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      signInWithCredential(auth, credential);
+    }
+  }, [response]);
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Welcome to Bar Inventory</Text>
+      <Button
+        disabled={!request}
+        title="Sign in with Google"
+        onPress={() => {
+          promptAsync();
+        }}
+      />
+    </View>
+  );
 }
 
 
-// This is a simple component that we will show on the screen
-export default function TestScreen() {
-  
-  // The button doesn't do anything yet. We are only testing if the app loads.
+export default function RootLayout() {
+  const [user, setUser] = useState<User | null>(null);
+  const [initializing, setInitializing] = useState(true);
+
+  useEffect(() => {
+    const subscriber = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      if (initializing) {
+        setInitializing(false);
+      }
+    });
+    return subscriber; // unsubscribe on unmount
+  }, []);
+
+  if (initializing) {
+    return (
+        <View style={styles.container}>
+            <ActivityIndicator size="large" />
+        </View>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen />;
+  }
+
+  // If logged in, show the main app.
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Test Screen</Text>
-      <Text style={styles.subtitle}>If you can see this text, the app loaded!</Text>
-      <Button title="Sign in with Google" onPress={() => alert('Button works!')} />
-    </View>
+    <Stack>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="+not-found" />
+    </Stack>
   );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-    title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
-    subtitle: { fontSize: 16, color: 'gray'},
+    title: { fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
 });
