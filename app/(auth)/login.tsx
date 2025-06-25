@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { JSX, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import * as Google from 'expo-auth-session/providers/google';
 import { getAuth, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
